@@ -3,12 +3,11 @@ import { View, TouchableOpacity, StyleSheet, Text } from 'react-native';
 import { CameraView } from 'expo-camera';
 import { Audio } from 'expo-av';
 import { LocationService } from '../services/LocationService';
-import { GalleryStorageService } from '../services/GalleryStorageService';
 import { LocationData } from '../utils/constants';
 
 type Props = {
     enabled: boolean;
-    onDualCapture: (photos: { back: { uri: string }, front: { uri: string }, location?: LocationData, saved?: boolean }) => void;
+    onDualCapture: (photos: { back: { uri: string }, front: { uri: string }, location?: LocationData }) => void;
 };
 
 export const DualCamera: React.FC<Props> = ({ enabled, onDualCapture }) => {
@@ -87,36 +86,12 @@ export const DualCamera: React.FC<Props> = ({ enabled, onDualCapture }) => {
         // Guardar foto frontal y completar captura
         setFrontPhoto({ uri: photo.uri });
         
-        // Intentar guardar automáticamente en galería
-        try {
-          console.log('Guardando fotos en galería...');
-          const result = await GalleryStorageService.saveDualPhotoToGallery(
-            backPhoto!.uri,
-            photo.uri,
-            location || undefined
-          );
-          
-          onDualCapture({ 
-            back: backPhoto!, 
-            front: { uri: photo.uri },
-            location: location || undefined,
-            saved: result !== null
-          });
-          
-          if (result) {
-            console.log('✅ Fotos guardadas en galería exitosamente');
-          } else {
-            console.log('⚠️ No se pudieron guardar en galería, pero se mantienen en app');
-          }
-        } catch (error) {
-          console.error('Error guardando en galería:', error);
-          onDualCapture({ 
-            back: backPhoto!, 
-            front: { uri: photo.uri },
-            location: location || undefined,
-            saved: false
-          });
-        }
+        // Completar captura dual
+        onDualCapture({ 
+          back: backPhoto!, 
+          front: { uri: photo.uri },
+          location: location || undefined
+        });
         
         // Reset para próxima captura
         setBackPhoto(null);

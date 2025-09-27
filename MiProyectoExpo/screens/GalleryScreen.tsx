@@ -32,23 +32,11 @@ export const GalleryScreen: React.FC<Props> = ({ photos, onBack }) => {
       setDownloading(true);
       
       // Usar el nuevo servicio simplificado
-      const success = await PhotoDownloadService.downloadPhoto(uri, filename);
-      
-      if (!success) {
-        Alert.alert(
-          'Error',
-          'No se pudo preparar la foto para guardar',
-          [{ text: 'OK' }]
-        );
-      }
+      await PhotoDownloadService.downloadPhoto(uri, filename);
       
     } catch (error) {
       console.error('Error downloading photo:', error);
-      Alert.alert(
-        'Error',
-        'Ocurrió un error al procesar la foto',
-        [{ text: 'OK' }]
-      );
+      // Solo mostrar error si realmente falla algo crítico
     } finally {
       setDownloading(false);
     }

@@ -34,13 +34,7 @@ export class PhotoDownloadService {
   static async downloadPhoto(uri: string, filename: string) {
     try {
       const success = await this.sharePhoto(uri, `Guardar: ${filename}`);
-      if (success) {
-        Alert.alert(
-          '✅ Éxito', 
-          'Usa la opción "Guardar en fotos" o similar para almacenar la imagen en tu galería',
-          [{ text: 'OK' }]
-        );
-      }
+      // Removido el mensaje de éxito - compartir silenciosamente
       return success;
     } catch (error) {
       console.error('Error downloading photo:', error);
