@@ -1,8 +1,12 @@
 import { useReadContract } from 'wagmi'
 import { CONTRACT_CONFIG } from '../config/web3'
+import { useState } from 'react'
+import { formatUnits } from 'viem'
 
 export function UsersList() {
-  // Leer lista de usuarios que interactuaron con el faucet
+  const [copiedAddress, setCopiedAddress] = useState<string | null>(null)
+
+  // Leer lista de usuarios
   const { data: users, isLoading } = useReadContract({
     ...CONTRACT_CONFIG,
     functionName: 'getFaucetUsers',
@@ -14,143 +18,111 @@ export function UsersList() {
     functionName: 'getFaucetAmount',
   })
 
+  // Leer decimales
+  const { data: decimals } = useReadContract({
+    ...CONTRACT_CONFIG,
+    functionName: 'decimals',
+  })
+
+  const formatBalance = (value: bigint | undefined) => {
+    if (!value || !decimals) return '0'
+    const formatted = formatUnits(value, decimals)
+    return Number(formatted).toLocaleString('en-US', { 
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 0 
+    })
+  }
+
+  const copyToClipboard = (address: string) => {
+    navigator.clipboard.writeText(address)
+    setCopiedAddress(address)
+    setTimeout(() => setCopiedAddress(null), 2000)
+  }
+
   if (isLoading) {
     return (
-      <div className="max-w-4xl mx-auto space-y-8">
-        <div className="text-center space-y-4">
-          <div className="w-20 h-20 mx-auto bg-gradient-to-r from-green-500 to-blue-500 rounded-2xl shadow-xl flex items-center justify-center">
-            <div className="w-8 h-8 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+      <div className="p-8">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <svg className="animate-spin h-8 w-8 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p className="text-sm text-gray-500">Loading users...</p>
           </div>
-          <h3 className="text-3xl font-bold text-gray-900">Cargando Comunidad...</h3>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-gray-100 rounded-2xl p-6 animate-pulse">
-              <div className="h-4 bg-gray-200 rounded mb-4"></div>
-              <div className="h-8 bg-gray-200 rounded mb-2"></div>
-              <div className="h-3 bg-gray-200 rounded w-2/3"></div>
-            </div>
-          ))}
         </div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
-      {/* Header */}
-      <div className="text-center space-y-4">
-        <div className="w-20 h-20 mx-auto bg-gradient-to-r from-green-500 to-blue-500 rounded-2xl shadow-xl flex items-center justify-center transform hover:scale-110 transition-transform duration-300">
-          <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
-        </div>
-        <h3 className="text-3xl font-bold text-gray-900">Nuestra Comunidad</h3>
-        <p className="text-gray-600 max-w-2xl mx-auto text-lg">
-          Conoce a todos los miembros que han reclamado tokens del faucet y forman parte de nuestra creciente comunidad Web3
+    <div className="p-8">
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Faucet Users</h3>
+        <p className="text-sm text-gray-600">
+          Addresses that have claimed tokens from the faucet
         </p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
-        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-8 text-center">
-          <div className="text-5xl font-bold text-green-600 mb-2">
-            {users ? users.length : '0'}
-          </div>
-          <div className="text-green-700 font-semibold text-lg">Miembros Activos</div>
-          <div className="text-green-600 text-sm mt-1">Han reclamado tokens</div>
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+          <p className="text-xs font-medium text-blue-600 mb-1">Total Users</p>
+          <p className="text-2xl font-bold text-blue-900">{users ? users.length : 0}</p>
         </div>
-
-        <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-2xl p-8 text-center">
-          <div className="text-5xl font-bold text-purple-600 mb-2">
-            {faucetAmount ? Number(faucetAmount).toLocaleString() : '0'}
-          </div>
-          <div className="text-purple-700 font-semibold text-lg">Tokens / Usuario</div>
-          <div className="text-purple-600 text-sm mt-1">Reclamo gratuito</div>
+        <div className="bg-green-50 border border-green-100 rounded-lg p-4">
+          <p className="text-xs font-medium text-green-600 mb-1">Tokens Per Claim</p>
+          <p className="text-2xl font-bold text-green-900">{formatBalance(faucetAmount)}</p>
         </div>
       </div>
-      
+
       {users && users.length > 0 ? (
-        <div className="space-y-6">
-          {/* Users Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {users.map((user, index) => (
-              <div key={user} className="group bg-white border border-gray-200 hover:border-blue-300 rounded-2xl p-6 transition-all duration-200 hover:shadow-xl transform hover:scale-105">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
-                    #{index + 1}
+        <div className="space-y-3">
+          {users.map((user: string, index: number) => (
+            <div
+              key={user}
+              className="bg-white border border-gray-200 hover:border-gray-300 rounded-lg p-4 transition-all hover:shadow-sm"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0">
+                    <span className="text-white text-sm font-semibold">#{index + 1}</span>
                   </div>
-                  <div className="text-green-600 bg-green-50 px-3 py-1 rounded-full text-xs font-semibold border border-green-200">
-                    ✅ Verificado
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="text-lg font-bold text-gray-900 font-mono">
-                    {user.slice(0, 8)}...{user.slice(-6)}
-                  </div>
-                  <div className="text-xs text-gray-500 font-mono break-all">
-                    {user}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-mono text-gray-900 truncate">{user}</p>
+                    <p className="text-xs text-gray-500">Claimed {formatBalance(faucetAmount)} FT</p>
                   </div>
                 </div>
-
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(user)
-                      // Mostrar feedback visual
-                      const button = document.activeElement as HTMLElement
-                      const originalText = button.innerText
-                      button.innerText = '¡Copiado!'
-                      setTimeout(() => {
-                        button.innerText = originalText
-                      }, 1000)
-                    }}
-                    className="w-full bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 text-gray-700 hover:text-blue-700 py-2 px-4 rounded-xl transition-all duration-200 text-sm font-medium"
-                  >
-                    📋 Copiar Dirección
-                  </button>
-                </div>
+                <button
+                  onClick={() => copyToClipboard(user)}
+                  className="px-3 py-2 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg transition-colors flex-shrink-0"
+                  title="Copy address"
+                >
+                  {copiedAddress === user ? (
+                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  )}
+                </button>
               </div>
-            ))}
-          </div>
-
-          {/* Pagination Info */}
-          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 text-center">
-            <div className="flex items-center justify-center space-x-2 text-blue-700">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
-              <span className="font-semibold">
-                Mostrando todos los {users.length} miembros que han reclamado tokens
-              </span>
             </div>
-            <p className="text-blue-600 text-sm mt-2">
-              Cada miembro ha reclamado {faucetAmount ? Number(faucetAmount).toLocaleString() : '1,000,000'} tokens gratuitos
-            </p>
-          </div>
+          ))}
         </div>
       ) : (
-        <div className="text-center py-16 space-y-6 max-w-2xl mx-auto">
-          <div className="w-32 h-32 mx-auto bg-gray-100 rounded-full flex items-center justify-center">
-            <svg className="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        <div className="text-center py-12">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>
           </div>
-          <div className="space-y-3">
-            <h4 className="text-2xl font-bold text-gray-900">¡Sé el Primero!</h4>
-            <p className="text-gray-600 text-lg leading-relaxed">
-              Aún no hay miembros en la comunidad. Conecta tu wallet y reclama tokens gratuitos para convertirte en el primer miembro.
-            </p>
-          </div>
-          <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-2xl p-6">
-            <div className="text-4xl mb-3">🚀</div>
-            <h5 className="font-semibold text-gray-900 mb-2">¿Listo para comenzar?</h5>
-            <p className="text-gray-600 text-sm">
-              Conecta tu wallet y reclama {faucetAmount ? Number(faucetAmount).toLocaleString() : '1,000,000'} tokens completamente gratis
-            </p>
-          </div>
+          <h4 className="text-lg font-semibold text-gray-900 mb-2">No users yet</h4>
+          <p className="text-sm text-gray-600 max-w-sm mx-auto">
+            Be the first to claim tokens from the faucet and appear in this list
+          </p>
         </div>
       )}
     </div>

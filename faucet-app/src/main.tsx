@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import App from './App.tsx'
+import AppWithBackend from './AppWithBackend.tsx'
 import './index.css'
 
 // Imports para Web3
@@ -15,7 +15,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <App />
+        <AppWithBackend />
       </QueryClientProvider>
     </WagmiProvider>
   </React.StrictMode>,

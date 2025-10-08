@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useAccount, useWriteContract, useReadContract } from 'wagmi'
 import { CONTRACT_CONFIG } from '../config/web3'
-import { parseUnits, isAddress } from 'viem'
+import { parseUnits, isAddress, formatUnits } from 'viem'
 
 export function TransferTokens() {
   const { address, isConnected } = useAccount()
   const [recipient, setRecipient] = useState('')
   const [amount, setAmount] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [success, setSuccess] = useState(false)
 
   // Leer balance del usuario
   const { data: balance } = useReadContract({
@@ -16,25 +17,32 @@ export function TransferTokens() {
     args: address ? [address] : undefined,
   })
 
+  // Leer decimales
+  const { data: decimals } = useReadContract({
+    ...CONTRACT_CONFIG,
+    functionName: 'decimals',
+  })
+
   const { writeContract } = useWriteContract()
 
   const handleTransfer = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!isConnected || !recipient || !amount) return
+    if (!isConnected || !recipient || !amount || !decimals) return
 
     // Validaciones
     if (!isAddress(recipient)) {
-      alert('La dirección del destinatario no es válida')
+      alert('Invalid recipient address')
       return
     }
 
-    const transferAmount = parseUnits(amount, 18) // Asumiendo 18 decimales
+    const transferAmount = parseUnits(amount, decimals)
     if (balance && transferAmount > balance) {
-      alert('No tienes suficientes tokens para esta transferencia')
+      alert('Insufficient token balance')
       return
     }
 
     setIsLoading(true)
+    setSuccess(false)
     try {
       await writeContract({
         ...CONTRACT_CONFIG,
@@ -42,184 +50,176 @@ export function TransferTokens() {
         args: [recipient, transferAmount],
       })
       
-      // Limpiar formulario
       setRecipient('')
       setAmount('')
-      alert('Transferencia iniciada correctamente!')
+      setSuccess(true)
+      setTimeout(() => setSuccess(false), 3000)
       
     } catch (error) {
-      console.error('Error en la transferencia:', error)
-      alert('Error al realizar la transferencia')
+      console.error('Transfer error:', error)
+      alert('Transfer failed. Please try again.')
     } finally {
       setIsLoading(false)
     }
   }
 
-  if (!isConnected) return null
+  const formatBalance = (value: bigint | undefined) => {
+    if (!value || !decimals) return '0'
+    const formatted = formatUnits(value, decimals)
+    return Number(formatted).toLocaleString('en-US', { 
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 0 
+    })
+  }
 
-  return (
-    <div className="max-w-2xl mx-auto space-y-8">
-      {/* Header */}
-      <div className="text-center space-y-4">
-        <div className="w-20 h-20 mx-auto bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl shadow-xl flex items-center justify-center transform hover:scale-110 transition-transform duration-300">
-          <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+  const handleMaxClick = () => {
+    if (balance && decimals) {
+      const formatted = formatUnits(balance, decimals)
+      setAmount(formatted)
+    }
+  }
+
+  if (!isConnected) {
+    return (
+      <div className="p-8 text-center">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
           </svg>
         </div>
-        <h3 className="text-3xl font-bold text-gray-900">Transferir Tokens</h3>
-        <p className="text-gray-600 max-w-lg mx-auto">
-          Envía tokens a cualquier dirección de Ethereum de forma segura e instantánea
+        <p className="text-gray-600">Connect your wallet to transfer tokens</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-8">
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Transfer Tokens</h3>
+        <p className="text-sm text-gray-600">
+          Send tokens to any Ethereum address
         </p>
       </div>
 
-      {/* Balance Card */}
-      <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-2xl p-6 text-center">
-        <div className="text-sm text-gray-600 mb-2">Tu balance disponible</div>
-        <div className="text-4xl font-bold text-gray-900 mb-2">
-          {balance ? Number(balance).toLocaleString() : '0'}
-        </div>
-        <div className="text-purple-600 font-semibold">Tokens</div>
+      {/* Balance display */}
+      <div className="mb-6 p-4 bg-gray-50 border border-gray-100 rounded-lg">
+        <p className="text-xs font-medium text-gray-500 mb-1">Available Balance</p>
+        <p className="text-2xl font-bold text-gray-900">{formatBalance(balance)} FT</p>
       </div>
 
-      {/* Transfer Form */}
-      <form onSubmit={handleTransfer} className="space-y-6">
-        {/* Recipient Input */}
-        <div className="space-y-2">
-          <label className="block text-sm font-bold text-gray-700 mb-3">
-            Dirección del destinatario
-          </label>
-          <div className="relative">
-            <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </div>
-            <input
-              type="text"
-              value={recipient}
-              onChange={(e) => setRecipient(e.target.value)}
-              placeholder="0x..."
-              className={`w-full pl-12 pr-4 py-4 bg-white border-2 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono text-sm transition-all ${
-                recipient && !isAddress(recipient) 
-                  ? 'border-red-300 bg-red-50' 
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-              required
-            />
-            {recipient && (
-              <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                {isAddress(recipient) ? (
-                  <div className="text-green-500">
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                ) : (
-                  <div className="text-red-500">
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                )}
-              </div>
-            )}
+      {/* Success message */}
+      {success && (
+        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+          <div className="flex items-center gap-2">
+            <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <p className="text-sm font-medium text-green-800">Transfer initiated successfully!</p>
           </div>
+        </div>
+      )}
+
+      {/* Transfer form */}
+      <form onSubmit={handleTransfer} className="space-y-6">
+        {/* Recipient */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Recipient Address
+          </label>
+          <input
+            type="text"
+            value={recipient}
+            onChange={(e) => setRecipient(e.target.value)}
+            placeholder="0x..."
+            className={`w-full px-4 py-3 border rounded-lg text-sm font-mono focus:outline-none focus:ring-2 transition-all ${
+              recipient && !isAddress(recipient)
+                ? 'border-red-300 bg-red-50 focus:ring-red-200'
+                : 'border-gray-200 bg-white focus:ring-blue-200 focus:border-blue-400'
+            }`}
+            required
+          />
           {recipient && !isAddress(recipient) && (
-            <p className="text-red-500 text-sm mt-1">⚠️ Dirección no válida</p>
+            <p className="mt-1 text-xs text-red-600">Invalid Ethereum address</p>
           )}
         </div>
 
-        {/* Amount Input */}
-        <div className="space-y-2">
-          <label className="block text-sm font-bold text-gray-700 mb-3">
-            Cantidad de tokens
-          </label>
-          <div className="relative">
-            <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-              </svg>
-            </div>
-            <input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="1000"
-              min="0"
-              step="0.000000000000000001"
-              className="w-full pl-12 pr-20 py-4 bg-white border-2 border-gray-200 hover:border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-lg transition-all"
-              required
-            />
+        {/* Amount */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Amount
+            </label>
             <button
               type="button"
-              onClick={() => setAmount(balance ? balance.toString() : '0')}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 bg-purple-100 hover:bg-purple-200 text-purple-700 px-3 py-1 rounded-lg text-sm font-semibold transition-colors"
+              onClick={handleMaxClick}
+              className="text-xs font-medium text-blue-600 hover:text-blue-700"
             >
-              MAX
+              Use Max
             </button>
           </div>
+          <input
+            type="number"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="0.0"
+            min="0"
+            step="0.000000000000000001"
+            className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400 transition-all"
+            required
+          />
         </div>
 
-        {/* Quick Amount Buttons */}
-        <div className="space-y-2">
-          <label className="block text-sm font-bold text-gray-700 mb-3">
-            Cantidades rápidas
-          </label>
-          <div className="grid grid-cols-4 gap-3">
-            {['100', '1000', '5000', '10000'].map((quickAmount) => (
+        {/* Quick amounts */}
+        <div>
+          <p className="text-sm font-medium text-gray-700 mb-2">Quick Amount</p>
+          <div className="grid grid-cols-4 gap-2">
+            {['100', '1000', '10000', '100000'].map((quickAmount) => (
               <button
                 key={quickAmount}
                 type="button"
                 onClick={() => setAmount(quickAmount)}
-                className="py-3 px-4 bg-gray-100 hover:bg-gray-200 border border-gray-200 hover:border-gray-300 rounded-xl text-gray-700 hover:text-gray-900 transition-all duration-200 font-semibold text-sm"
+                className="py-2 px-3 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 transition-colors"
               >
-                {Number(quickAmount).toLocaleString()}
+                {Number(quickAmount) >= 1000 
+                  ? `${Number(quickAmount) / 1000}k` 
+                  : quickAmount}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Submit Button */}
+        {/* Submit button */}
         <button
           type="submit"
           disabled={isLoading || !recipient || !amount || !isAddress(recipient)}
-          className={`w-full py-4 px-6 rounded-xl font-bold text-lg transition-all duration-300 transform ${
-            isLoading || !recipient || !amount || !isAddress(recipient)
-              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              : 'bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white shadow-xl hover:shadow-2xl hover:scale-105'
-          }`}
+          className="w-full py-3 px-4 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors duration-200"
         >
           {isLoading ? (
-            <div className="flex items-center justify-center space-x-2">
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              <span>Procesando transferencia...</span>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center space-x-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            <span className="flex items-center justify-center gap-2">
+              <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              <span>Enviar Tokens</span>
-            </div>
+              Processing...
+            </span>
+          ) : (
+            'Send Tokens'
           )}
         </button>
       </form>
 
-      {/* Info Card */}
-      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
-        <div className="flex items-start space-x-3">
-          <div className="text-blue-500 mt-1">
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-            </svg>
-          </div>
-          <div>
-            <h4 className="font-semibold text-blue-900 mb-2">Información importante</h4>
-            <ul className="text-sm text-blue-700 space-y-1">
-              <li>• Las transferencias son irreversibles</li>
-              <li>• Verifica la dirección del destinatario</li>
-              <li>• Las transacciones pueden tardar unos minutos</li>
-              <li>• Se requiere ETH para pagar las tarifas de gas</li>
+      {/* Info */}
+      <div className="mt-6 p-4 bg-blue-50 border border-blue-100 rounded-lg">
+        <div className="flex items-start gap-3">
+          <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div className="text-sm text-blue-900">
+            <p className="font-medium mb-1">Important</p>
+            <ul className="space-y-1 text-blue-800">
+              <li>• Transfers are irreversible</li>
+              <li>• Verify the recipient address carefully</li>
+              <li>• ETH required for gas fees</li>
             </ul>
           </div>
         </div>
