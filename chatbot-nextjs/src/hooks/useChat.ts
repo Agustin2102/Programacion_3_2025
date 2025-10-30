@@ -57,8 +57,6 @@ export function useChat(): UseChatReturn {
         setIsLoading(true);
         setError(undefined);
 
-        console.log('📤 Enviando mensaje:', message.content.substring(0, 50));
-
         // Crear el mensaje del usuario
         const userMessage: Message = {
             id: `user-${Date.now()}`,
@@ -72,9 +70,8 @@ export function useChat(): UseChatReturn {
 
         try {
             // Solo enviar el último mensaje del usuario (sin historial)
-            // Esto evita problemas con mensajes vacíos del asistente
             const messagesToSend = [{
-                //role: userMessage.role,
+                role: userMessage.role,
                 content: userMessage.content
             }];
 

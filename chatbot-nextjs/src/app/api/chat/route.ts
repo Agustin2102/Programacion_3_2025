@@ -83,10 +83,6 @@ export async function POST(req: Request) {
         // 6. Obtener el modelo de las variables de entorno
         const model = process.env.OPENROUTER_MODEL || 'google/gemini-flash-1.5-8b';
 
-        console.log('🤖 Usando modelo:', model);
-        console.log('💬 Enviando mensaje del usuario');
-        console.log('📊 Timestamp:', new Date().toISOString());
-
         // 7. Crear el stream de respuesta usando AI SDK (sin historial)
         const result = streamText({
             model: openrouter(model),
