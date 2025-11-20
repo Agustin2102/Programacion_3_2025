@@ -28,6 +28,24 @@ export async function markAsRead(params: {
             throw new Error('Rating debe estar entre 1 y 5');
         }
     
+        // Verificar que el libro existe en la base de datos, si no, obtenerlo de Google Books
+        let book = await prisma.book.findUnique({
+            where: { id: bookId },
+        });
+
+        if (!book) {
+            // Obtener el libro de Google Books API y guardarlo
+            const { getBookDetails } = await import('./books');
+            try {
+                await getBookDetails({ bookId });
+                book = await prisma.book.findUnique({
+                    where: { id: bookId },
+                });
+            } catch (error) {
+                throw new Error(`No se pudo encontrar el libro con ID ${bookId}. Asegúrate de usar un ID válido de Google Books.`);
+            }
+        }
+    
         // Verificar si ya está marcado como leído
         const existing = await prisma.readBook.findUnique({
             where: { bookId },
@@ -45,7 +63,7 @@ export async function markAsRead(params: {
             });
             return {
                 success: true,
-                message: 'Libro actualizado en tu historial de lectura',
+                message: `"${book.title}" actualizado en tu historial de lectura${rating ? ` con ${rating} estrellas` : ''}`,
             };
         }
     
@@ -68,9 +86,9 @@ export async function markAsRead(params: {
     
         return {
             success: true,
-            message: 'Libro marcado como leído exitosamente',
+            message: `"${book.title}" marcado como leído exitosamente${rating ? ` con ${rating} estrellas` : ''}`,
         };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error en markAsRead:', error);
       throw error;
     }
@@ -116,7 +134,7 @@ export async function getReadingStats(params: {
         // Calcular estadísticas
         const totalBooksRead = readBooks.length;
         const totalPagesRead = readBooks.reduce(
-            (sum, rb) => sum + (rb.book.pageCount || 0),
+            (sum, rb) => sum + (rb.book?.pageCount || 0),
             0
         );
     
@@ -131,23 +149,27 @@ export async function getReadingStats(params: {
         // Contar géneros
         const genreCount: Record<string, number> = {};
         readBooks.forEach((rb) => {
-            const categories = rb.book.categories.split(',').map((c) => c.trim());
-            categories.forEach((cat) => {
-            if (cat) {
-                genreCount[cat] = (genreCount[cat] || 0) + 1;
+            if (rb.book?.categories) {
+                const categories = rb.book.categories.split(',').map((c) => c.trim());
+                categories.forEach((cat) => {
+                    if (cat) {
+                        genreCount[cat] = (genreCount[cat] || 0) + 1;
+                    }
+                });
             }
-            });
         });
     
         // Contar autores
         const authorCount: Record<string, number> = {};
         readBooks.forEach((rb) => {
-            const authors = rb.book.authors.split(',').map((a) => a.trim());
-            authors.forEach((author) => {
-                if (author) {
-                    authorCount[author] = (authorCount[author] || 0) + 1;
-                }
-            });
+            if (rb.book?.authors) {
+                const authors = rb.book.authors.split(',').map((a) => a.trim());
+                authors.forEach((author) => {
+                    if (author) {
+                        authorCount[author] = (authorCount[author] || 0) + 1;
+                    }
+                });
+            }
         });
     
         // Top géneros

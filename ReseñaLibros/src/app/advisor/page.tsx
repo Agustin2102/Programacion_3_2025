@@ -1,11 +1,13 @@
 /**
  * Página principal del AI Advisor:
-*/
+ */
 
 'use client';
 
 import { useChat } from '../../lib/useChat';
 import { useEffect, useRef } from 'react';
+import BookCard from '../../components/BookCard';
+import ReadingStats from '../../components/ReadingStats';
 
 export default function AdvisorPage() {
   const { messages, input, handleInputChange, handleSubmit, isLoading } =
@@ -89,14 +91,13 @@ export default function AdvisorPage() {
               className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-3xl rounded-lg px-4 py-3 ${
-                  message.role === 'user'
+                className={`max-w-3xl rounded-lg px-4 py-3 ${message.role === 'user'
                     ? 'bg-indigo-600 text-white'
                     : 'bg-white text-gray-900 shadow-sm'
-                }`}
+                  }`}
               >
                 {/* Content */}
-                <div className="prose max-w-none">
+                <div className="prose max-w-none whitespace-pre-wrap">
                   {message.content}
                 </div>
 

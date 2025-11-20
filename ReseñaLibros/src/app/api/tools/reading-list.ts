@@ -17,6 +17,24 @@ export async function addToReadingList(params: {
             throw new Error('bookId es requerido');
         }
 
+        // Verificar que el libro existe en la base de datos, si no, obtenerlo de Google Books
+        let book = await prisma.book.findUnique({
+            where: { id: bookId },
+        });
+
+        if (!book) {
+            // Obtener el libro de Google Books API y guardarlo
+            const { getBookDetails } = await import('./books');
+            try {
+                await getBookDetails({ bookId });
+                book = await prisma.book.findUnique({
+                    where: { id: bookId },
+                });
+            } catch (error) {
+                throw new Error(`No se pudo encontrar el libro con ID ${bookId}. Asegúrate de usar un ID válido de Google Books.`);
+            }
+        }
+
         // Verificar si el libro ya está en la lista
         const existing = await prisma.readingListItem.findUnique({
             where: { bookId },
@@ -30,7 +48,7 @@ export async function addToReadingList(params: {
             });
             return {
                 success: true,
-                message: 'Lista de lectura actualizada exitosamente',
+                message: `"${book.title}" actualizado en tu lista de lectura exitosamente`,
             };
         }
 
@@ -45,10 +63,10 @@ export async function addToReadingList(params: {
 
         return {
             success: true,
-            message: 'Libro agregado a la lista de lectura exitosamente',
+            message: `"${book.title}" agregado a tu lista de lectura exitosamente`,
         };
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error en addToReadingList:', error);
         throw error;
     }
@@ -91,16 +109,18 @@ export async function getReadingList(params: {
         });
     
         // Formatear para el LLM
-        return items.map((item) => ({
+        const formatted = items.map((item) => ({
             id: item.id,
             bookId: item.bookId,
-            title: item.book.title,
-            authors: item.book.authors,
-            priority: item.priority,
-            notes: item.notes,
-            addedAt: item.addedAt,
+            title: item.book?.title || 'Libro desconocido',
+            authors: item.book?.authors || 'Autor desconocido',
+            priority: item.priority || 'medium',
+            notes: item.notes || null,
+            addedAt: item.addedAt.toISOString(),
         }));
-    } catch (error) {
+
+        return formatted;
+    } catch (error: any) {
         console.error('Error en getReadingList:', error);
         throw error;
     }

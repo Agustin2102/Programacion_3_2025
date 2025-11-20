@@ -18,7 +18,8 @@ export function useChat({ api = '/api/advisor' } = {}) {
       if (!text) return;
 
       const userMessage: Message = { id: String(Date.now()), role: 'user', content: text };
-      setMessages((m) => [...m, userMessage]);
+      const updatedMessages = [...messages, userMessage];
+      setMessages(updatedMessages);
       setInput('');
       setIsLoading(true);
 
@@ -26,7 +27,8 @@ export function useChat({ api = '/api/advisor' } = {}) {
         const res = await fetch(api, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Accept: 'text/plain' },
-          body: JSON.stringify({ messages: [userMessage] }),
+          // Send full conversation history for context
+          body: JSON.stringify({ messages: updatedMessages }),
         });
         console.log('useChat: fetch response', res.status, res.headers.get('content-type'));
 
@@ -65,7 +67,7 @@ export function useChat({ api = '/api/advisor' } = {}) {
         setIsLoading(false);
       }
     },
-    [api, input]
+    [api, input, messages]
   );
 
   return { messages, input, handleInputChange, handleSubmit, isLoading };
