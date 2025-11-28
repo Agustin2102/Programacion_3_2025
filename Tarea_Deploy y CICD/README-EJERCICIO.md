@@ -1,42 +1,42 @@
-# 📚 Plataforma de Reseñas de Libros - CI/CD Pipeline
+# Plataforma de Reseñas de Libros - CI/CD Pipeline
 
-## 🎯 **Entregables del Ejercicio 10**
+## **Entregables del Ejercicio 10**
 
-### **📍 Enlaces Principales:**
-- **🌐 Aplicación Deployada:** [https://tarealibrost9.vercel.app](https://tarealibrost9.vercel.app)
-- **📂 Repositorio GitHub:** [https://github.com/Agustin2102/Libros](https://github.com/Agustin2102/Libros)
-- **🐳 Container Registry:** [ghcr.io/agustin2102/libros](https://github.com/Agustin2102/Libros/pkgs/container/libros)
+### **Enlaces Principales:**
+- **Aplicación Deployada:** [https://tarealibrost9.vercel.app](https://tarealibrost9.vercel.app)
+- **Repositorio GitHub:** [https://github.com/Agustin2102/Libros](https://github.com/Agustin2102/Libros)
+- **Container Registry:** [ghcr.io/agustin2102/libros](https://github.com/Agustin2102/Libros/pkgs/container/libros)
 
 ---
 
-## ✅ **GitHub Actions Implementados**
+## **GitHub Actions Implementados**
 
-### **1. 🔨 Build en Pull Requests** 
+### **1. Build en Pull Requests** 
 **Archivo:** `.github/workflows/build-pr.yml`
-- ✅ Se ejecuta automáticamente en cada PR
-- ✅ Instala dependencias del proyecto  
-- ✅ Buildea la aplicación
-- ✅ Falla el PR si el build no es exitoso
-- ✅ Feedback claro sobre errores
+- Se ejecuta automáticamente en cada PR
+- Instala dependencias del proyecto  
+- Buildea la aplicación
+- Falla el PR si el build no es exitoso
+- Feedback claro sobre errores
 
-### **2. 🧪 Tests en Pull Requests**
+### **2. Tests en Pull Requests**
 **Archivo:** `.github/workflows/test-pr.yml`
-- ✅ Se ejecuta automáticamente en cada PR
-- ✅ Instala dependencias del proyecto
-- ✅ Ejecuta todos los tests unitarios
-- ✅ Reporta resultados de tests
-- ✅ Falla el PR si algún test no pasa
+- Se ejecuta automáticamente en cada PR
+- Instala dependencias del proyecto
+- Ejecuta todos los tests unitarios
+- Reporta resultados de tests
+- Falla el PR si algún test no pasa
 
-### **3. 🐳 Docker Container**
+### **3. Docker Container**
 **Archivo:** `.github/workflows/docker-build.yml`
-- ✅ Se ejecuta al mergear a rama principal (main)
-- ✅ Construye imagen Docker de la aplicación
-- ✅ Publica en GitHub Container Registry (ghcr.io)
-- ✅ Tags apropiados (latest, commit hash, branch)
+- Se ejecuta al mergear a rama principal (main)
+- Construye imagen Docker de la aplicación
+- Publica en GitHub Container Registry (ghcr.io)
+- Tags apropiados (latest, commit hash, branch)
 
 ---
 
-## 🚀 **Deploy Local**
+## **Deploy Local**
 
 ```bash
 # 1. Clonar repositorio
@@ -61,7 +61,7 @@ npm run dev
 
 ---
 
-## 🔧 **Variables de Entorno**
+## **Variables de Entorno**
 
 ### **Desarrollo Local (.env)**
 ```env
@@ -74,7 +74,7 @@ DATABASE_URL="file:./dev.db"
 
 ---
 
-## 🐳 **Instrucciones Docker**
+## **Instrucciones Docker**
 
 ### **Usar Imagen del Registry**
 ```bash
@@ -95,15 +95,15 @@ docker run -p 3000:3000 libros-local
 ```
 
 ### **Características del Dockerfile:**
-- ✅ Multi-stage build optimizado
-- ✅ Imagen base `node:18-alpine`
-- ✅ Tamaño final optimizado (~313MB)
-- ✅ Variables de entorno configuradas
-- ✅ Prisma Client generation incluido
+- Multi-stage build optimizado
+- Imagen base `node:18-alpine`
+- Tamaño final optimizado (~313MB)
+- Variables de entorno configuradas
+- Prisma Client generation incluido
 
 ---
 
-## 📊 **Demostración GitHub Actions**
+## **Demostración GitHub Actions**
 
 ### **Workflows Activos:**
 1. **Verificar en GitHub:** [Actions Tab](https://github.com/Agustin2102/Libros/actions)
@@ -122,35 +122,35 @@ git push origin test-actions
 ```
 
 ### **Estado Verificado:**
-- ✅ **Build Check:** Pasa automáticamente en PRs
-- ✅ **Test Suite:** Ejecuta tests unitarios
-- ✅ **Docker Build:** Construye y publica imágenes
-- ✅ **Cache:** Optimiza tiempos de build
-- ✅ **Secrets:** GITHUB_TOKEN configurado correctamente
+- **Build Check:** Pasa automáticamente en PRs
+- **Test Suite:** Ejecuta tests unitarios
+- **Docker Build:** Construye y publica imágenes
+- **Cache:** Optimiza tiempos de build
+- **Secrets:** GITHUB_TOKEN configurado correctamente
 
 ---
 
-## 🎯 **Consideraciones Técnicas Cumplidas**
+## **Consideraciones Técnicas Cumplidas**
 
 ### **Repositorio:**
-- ✅ Repositorio público (GitHub Actions gratuitas)
-- ✅ Workflows documentados y funcionales
-- ✅ Multi-stage Dockerfile optimizado
+- Repositorio público (GitHub Actions gratuitas)
+- Workflows documentados y funcionales
+- Multi-stage Dockerfile optimizado
 
 ### **GitHub Actions:**
-- ✅ Versiones recientes (node@v4, docker@v5)
-- ✅ Cache para dependencias (`cache: 'npm'`)
-- ✅ Manejo seguro de secrets
-- ✅ Documentación clara de workflows
+- Versiones recientes (node@v4, docker@v5)
+- Cache para dependencias (`cache: 'npm'`)
+- Manejo seguro de secrets
+- Documentación clara de workflows
 
 ### **Deployment:**
-- ✅ Vercel deployment funcional
-- ✅ Variables de entorno configuradas
-- ✅ Base de datos PostgreSQL en producción
+- Vercel deployment funcional
+- Variables de entorno configuradas
+- Base de datos PostgreSQL en producción
 
 ---
 
-## 📋 **Stack Tecnológico**
+## **Stack Tecnológico**
 
 - **Frontend:** Next.js 15, React 18, TypeScript, Tailwind CSS
 - **Backend:** Next.js API Routes, Prisma ORM
