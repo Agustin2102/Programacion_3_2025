@@ -1,0 +1,76 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Book {
+  id          String @id // ID del libro desde Google Books API
+  title       String
+  authors     String   // Array de autores separados por comas
+  publisher   String?
+  publishedDate String?
+  description String?
+  imageUrl    String?
+  pageCount   Int?
+  categories  String   // Categorías separadas por comas
+  language    String?
+  previewLink String?
+  infoLink    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relación con reseñas
+  reviews     Review[]
+  
+  @@map("books")
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  bookId     String   // ID del libro desde Google Books API
+  userName   String
+  rating     Int      // 1-5 estrellas
+  reviewText String
+  upvotes    Int      @default(0)
+  downvotes  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  // Relación con libro
+  book       Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  
+  // Relación con votos
+  votes      Vote[]
+  
+  @@map("reviews")
+}
+
+model Vote {
+  id       String   @id @default(cuid())
+  reviewId String
+  userIP   String   // IP del usuario para evitar votos duplicados
+  voteType VoteType // UP o DOWN
+  createdAt DateTime @default(now())
+  
+  // Relación con reseña
+  review   Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  
+  // Un usuario (IP) solo puede votar una vez por reseña
+  @@unique([reviewId, userIP])
+  @@map("votes")
+}
+
+enum VoteType {
+  UP
+  DOWN
+}

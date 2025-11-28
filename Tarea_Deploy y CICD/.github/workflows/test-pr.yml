@@ -1,0 +1,44 @@
+name: Test Suite
+
+on:
+  pull_request:
+    branches: [ main, master ]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci --silent
+
+    - name: Generate Prisma Client
+      run: npx prisma generate --no-hints
+
+    - name: Run unit tests
+      run: npm run test:run
+
+    - name: Tests Summary
+      if: success()
+      run: |
+        echo "###  All Tests Passed! " >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "🧪 Your code quality looks great!" >> $GITHUB_STEP_SUMMARY
+        
+    - name:  Tests Failed
+      if: failure()
+      run: |
+        echo "###  Some Tests Failed " >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Please check the test results above and fix failing tests." >> $GITHUB_STEP_SUMMARY
