@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Review from '@/models/Review';
+import { prisma } from '@/lib/prisma';
 import { extractTokenFromHeader, validateToken } from '@/lib/auth-utils';
-import dbConnect from '@/lib/mongoose';
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    await dbConnect();
-
     // Verificar autenticación
     const authHeader = request.headers.get('authorization');
     const token = extractTokenFromHeader(authHeader);
@@ -32,7 +29,10 @@ export async function PUT(
     const reviewId = params.id;
 
     // Buscar la review existente
-    const existingReview = await Review.findById(reviewId);
+    const existingReview = await prisma.review.findUnique({
+      where: { id: reviewId }
+    });
+
     if (!existingReview) {
       return NextResponse.json(
         { error: 'Review not found' },
@@ -68,14 +68,21 @@ export async function PUT(
     }
 
     // Actualizar la review
-    const updatedReview = await Review.findByIdAndUpdate(
-      reviewId,
-      {
+    const updatedReview = await prisma.review.update({
+      where: { id: reviewId },
+      data: {
         rating,
         reviewText,
       },
-      { new: true } // Retorna el documento actualizado
-    );
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true
+          }
+        }
+      }
+    });
 
     return NextResponse.json({
       success: true,
@@ -97,8 +104,6 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    await dbConnect();
-
     // Verificar autenticación
     const authHeader = request.headers.get('authorization');
     const token = extractTokenFromHeader(authHeader);
@@ -121,7 +126,10 @@ export async function DELETE(
     const reviewId = params.id;
 
     // Buscar la review existente
-    const existingReview = await Review.findById(reviewId);
+    const existingReview = await prisma.review.findUnique({
+      where: { id: reviewId }
+    });
+
     if (!existingReview) {
       return NextResponse.json(
         { error: 'Review not found' },
@@ -138,7 +146,9 @@ export async function DELETE(
     }
 
     // Eliminar la review
-    await Review.findByIdAndDelete(reviewId);
+    await prisma.review.delete({
+      where: { id: reviewId }
+    });
 
     return NextResponse.json({
       success: true,

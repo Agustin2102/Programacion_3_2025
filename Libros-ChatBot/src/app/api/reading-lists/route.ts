@@ -1,46 +1,92 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '../../../lib/mongoose';
-import ReadingList from '../../../models/ReadingList';
+import { prisma } from '@/lib/prisma';
+import jwt from 'jsonwebtoken';
 
-// GET - Obtener listas de lectura de un usuario
+// GET - Obtener listas de lectura personalizadas de un usuario
 export async function GET(request: NextRequest) {
   try {
-    await connectDB();
+    // Obtener userId del token
+    const authHeader = request.headers.get('authorization');
     
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-
-    if (!userId) {
-      return NextResponse.json({ error: 'userId es requerido' }, { status: 400 });
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
-    const readingLists = await ReadingList.find({ userId })
-      .sort({ updatedAt: -1 })
-      .lean();
+    const token = authHeader.substring(7);
+    let userId: string;
+    
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as { userId: string };
+      userId = decoded.userId;
+    } catch (error) {
+      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+    }
 
-    return NextResponse.json(readingLists);
+    // Obtener todas las listas personalizadas del usuario con conteo de libros
+    const customLists = await prisma.customReadingList.findMany({
+      where: { userId },
+      include: {
+        books: true,
+      },
+      orderBy: { updatedAt: 'desc' }
+    });
+
+    // Formatear respuesta
+    const formattedLists = customLists.map(list => ({
+      _id: list.id,
+      name: list.name,
+      description: list.description,
+      books: list.books.map(b => b.bookId),
+      isPublic: list.isPublic,
+      createdAt: list.createdAt.toISOString(),
+      updatedAt: list.updatedAt.toISOString(),
+    }));
+
+    return NextResponse.json(formattedLists);
   } catch (error) {
     console.error('Error al obtener listas de lectura:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }
 
-// POST - Crear nueva lista de lectura
+// POST - Crear nueva lista de lectura personalizada
 export async function POST(request: NextRequest) {
   try {
-    await connectDB();
+    // Obtener userId del token
+    const authHeader = request.headers.get('authorization');
     
-    const body = await request.json();
-    const { userId, name, description, isPublic } = body;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    }
 
-    if (!userId || !name) {
+    const token = authHeader.substring(7);
+    let userId: string;
+    
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as { userId: string };
+      userId = decoded.userId;
+    } catch (error) {
+      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { name, description, isPublic } = body;
+
+    if (!name) {
       return NextResponse.json({ 
-        error: 'userId y name son requeridos' 
+        error: 'El nombre de la lista es requerido' 
       }, { status: 400 });
     }
 
     // Verificar si ya existe una lista con ese nombre
-    const existingList = await ReadingList.findOne({ userId, name });
+    const existingList = await prisma.customReadingList.findUnique({
+      where: {
+        userId_name: {
+          userId,
+          name: name.trim()
+        }
+      }
+    });
     
     if (existingList) {
       return NextResponse.json({ 
@@ -48,17 +94,33 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const readingList = await ReadingList.create({
-      userId,
-      name,
-      description: description || '',
-      books: [],
-      isPublic: isPublic || false,
+    // Crear la lista personalizada
+    const customList = await prisma.customReadingList.create({
+      data: {
+        userId,
+        name: name.trim(),
+        description: description?.trim() || null,
+        isPublic: isPublic || false,
+      },
+      include: {
+        books: true,
+      }
     });
 
-    return NextResponse.json(readingList, { status: 201 });
+    // Formatear respuesta
+    const formattedList = {
+      _id: customList.id,
+      name: customList.name,
+      description: customList.description,
+      books: customList.books.map(b => b.bookId),
+      isPublic: customList.isPublic,
+      createdAt: customList.createdAt.toISOString(),
+      updatedAt: customList.updatedAt.toISOString(),
+    };
+
+    return NextResponse.json(formattedList, { status: 201 });
   } catch (error) {
-    console.error('Error al crear lista de lectura:', error);
+    console.error('Error al crear lista:', error);
     return NextResponse.json({ error: 'Error del servidor' }, { status: 500 });
   }
 }

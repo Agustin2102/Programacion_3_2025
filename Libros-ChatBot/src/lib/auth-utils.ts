@@ -98,14 +98,14 @@ interface JWTPayload {
  */
 
 export function generateToken(user: {
-    _id: string;
+    id: string;
     email: string;
     name: string;
 }): string {
 
     // Carga util del token
     const payload: JWTPayload = {
-        userId: user._id,
+        userId: user.id,
         email: user.email,
         name: user.name,
         

@@ -38,6 +38,7 @@ model Book {
 model Review {
   id         String   @id @default(cuid())
   bookId     String   // ID del libro desde Google Books API
+  userId     String   // ID del usuario que creó la review
   userName   String
   rating     Int      // 1-5 estrellas
   reviewText String
@@ -48,6 +49,9 @@ model Review {
   
   // Relación con libro
   book       Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  
+  // Relación con usuario
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   // Relación con votos
   votes      Vote[]
@@ -73,4 +77,81 @@ model Vote {
 enum VoteType {
   UP
   DOWN
+}
+
+
+model User {
+  id            String              @id @default(cuid())
+  email         String              @unique
+  name          String
+  password      String
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  
+  customLists   CustomReadingList[]
+  readingLists  ReadingList[]
+  readBooks     ReadBook[]
+  reviews       Review[]
+  favorites     Favorite[]
+  
+  @@map("users")
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  bookId    String   // Google Books ID
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, bookId])
+  @@map("favorites")
+}
+
+model CustomReadingList {
+  id          String        @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  isPublic    Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  books       ReadingList[]
+  
+  @@unique([userId, name])
+  @@map("custom_reading_lists")
+}
+
+model ReadingList {
+  id          String             @id @default(cuid())
+  userId      String
+  listId      String?            // ID de la lista personalizada (null = lista por defecto)
+  bookId      String             // Google Books ID
+  priority    String?            // "high", "medium", "low"
+  notes       String?
+  addedAt     DateTime           @default(now())
+  
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  list        CustomReadingList? @relation(fields: [listId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, bookId, listId])
+  @@map("reading_lists")
+}
+
+model ReadBook {
+  id           String    @id @default(cuid())
+  userId       String
+  bookId       String    // Google Books ID
+  rating       Int?      // 1-5
+  review       String?
+  dateFinished DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+  
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, bookId])
+  @@map("read_books")
 }

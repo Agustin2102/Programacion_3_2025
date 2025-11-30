@@ -3,45 +3,49 @@
  */
 
 import { NextRequest } from 'next/server';
-import connectDB from '../../../../lib/mongoose';
-import User from '../../../../models/User';
-import { registerSchema, RegisterInput } from '../../../../lib/validations';
-import { hashPassword, generateToken, createErrorResponse, createSuccessResponse } from '../../../../lib/auth-utils';
+import { prisma } from '@/lib/prisma';
+import { registerSchema, RegisterInput } from '@/lib/validations';
+import { hashPassword, generateToken, createErrorResponse, createSuccessResponse } from '@/lib/auth-utils';
 
 export async function POST(request: NextRequest) {
   try {
-    await connectDB();
-
     const body: RegisterInput = await request.json();
     const validateData = registerSchema.parse(body);
 
-    const existinUser = await User.findOne({ email: validateData.email });
-    if (existinUser) {
-      return createErrorResponse('El email ya esta en uso', 400);
-    }
-
-    const hashedPassword = await hashPassword(validateData.password);
-
-    const newUser = await User.create({
-      email: validateData.email,
-      name: validateData.name,
-      password: hashedPassword,
+    // Verificar si el email ya existe
+    const existingUser = await prisma.user.findUnique({
+      where: { email: validateData.email }
     });
 
-    const savedUser = await newUser.save();
+    if (existingUser) {
+      return createErrorResponse('El email ya está en uso', 400);
+    }
 
+    // Hash de la contraseña
+    const hashedPassword = await hashPassword(validateData.password);
+
+    // Crear el nuevo usuario
+    const newUser = await prisma.user.create({
+      data: {
+        email: validateData.email,
+        name: validateData.name,
+        password: hashedPassword,
+      }
+    });
+
+    // Generar token JWT
     const token = generateToken({
-      _id: savedUser._id.toString(),
-      email: savedUser.email,
-      name: savedUser.name,
+      id: newUser.id,
+      email: newUser.email,
+      name: newUser.name,
     });
 
     return createSuccessResponse({
       message: 'Usuario registrado exitosamente',
       user: {
-        id: savedUser._id,
-        email: savedUser.email,
-        name: savedUser.name,
+        id: newUser.id,
+        email: newUser.email,
+        name: newUser.name,
       },
       token,
     }, 201);
@@ -56,7 +60,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (error.code === 11000) {
+    // Prisma error code for unique constraint violation
+    if (error.code === 'P2002') {
       return createErrorResponse('El email ya está registrado', 400);
     }
 

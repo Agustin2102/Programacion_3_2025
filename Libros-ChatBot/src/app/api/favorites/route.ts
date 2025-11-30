@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '../../../lib/mongoose';
-import Favorite from '../../../models/Favorite';
+import { prisma } from '../../../lib/prisma';
 
 // GET - Obtener favoritos del usuario
 export async function GET(request: NextRequest){
     try{
-        await connectDB(); // <-- Establece la conexión a la base de datos
-        
         // Obtener el userId de los parámetros de la URL
         const {searchParams} = new URL(request.url);
         const userId = searchParams.get('userId');
@@ -20,8 +17,10 @@ export async function GET(request: NextRequest){
             });
         }
 
-        const favorites = await Favorite.find({userId}).
-        sort({createdAt: -1}).lean(); // <-- Busca los favoritos del usuario y los ordena por fecha de creación
+        const favorites = await prisma.favorite.findMany({
+            where: { userId },
+            orderBy: { createdAt: 'desc' }
+        });
 
         return NextResponse.json(favorites);
     } catch (error) {
@@ -37,8 +36,6 @@ export async function GET(request: NextRequest){
 // POST - Agregar un libro a favoritos
 export async function POST(request: NextRequest){
     try {
-        await connectDB(); // <-- Establece la conexión a la base de datos
-
         const body = await request.json();
         const {userId, bookId, action} = body;
 
@@ -59,38 +56,67 @@ export async function POST(request: NextRequest){
         }
 
         if(action === 'add'){
-            //verifico si el libro ya esta en favoritos
-            const existingFavorite = await Favorite.findOne({userId, bookId});
+            // Verificar si el libro ya está en favoritos
+            const existingFavorite = await prisma.favorite.findUnique({
+                where: {
+                    userId_bookId: {
+                        userId,
+                        bookId
+                    }
+                }
+            });
+
             if(existingFavorite){
                 return NextResponse.json({
-                    error: 'El libro ya esta en favoritos'
+                    error: 'El libro ya está en favoritos'
                 }, {
                     status: 400
                 });
             }
 
-            //si no esta, lo agrego
-            const newFavorite = await Favorite.create({userId, bookId});
+            // Si no está, lo agrego
+            const newFavorite = await prisma.favorite.create({
+                data: {
+                    userId,
+                    bookId
+                }
+            });
+
             return NextResponse.json(newFavorite, {status: 201});
         } else if(action === 'remove'){
-            //verifico si el libro esta en favoritos
-            const existingFavorite = await Favorite.findOne({userId, bookId});
+            // Verificar si el libro está en favoritos
+            const existingFavorite = await prisma.favorite.findUnique({
+                where: {
+                    userId_bookId: {
+                        userId,
+                        bookId
+                    }
+                }
+            });
+
             if(!existingFavorite){
                 return NextResponse.json({
-                    error: 'El libro no esta en favoritos'
+                    error: 'El libro no está en favoritos'
                 }, {
                     status: 400
                 });
             }
 
-            //si esta, lo elimino
-            await Favorite.findByIdAndDelete(existingFavorite._id);
+            // Si está, lo elimino
+            await prisma.favorite.delete({
+                where: {
+                    userId_bookId: {
+                        userId,
+                        bookId
+                    }
+                }
+            });
+
             return NextResponse.json({
                 message: 'Libro eliminado de favoritos'
             }, {
                 status: 200
             });
-
         }
     } catch(error){
         console.error('Error al agregar o eliminar libro de favoritos:', error);
@@ -100,4 +126,4 @@ export async function POST(request: NextRequest){
             status: 500
         });
     }
-    }
+}

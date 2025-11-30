@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Review from '@/models/Review';
+import { prisma } from '@/lib/prisma';
 import { extractTokenFromHeader, validateToken } from '@/lib/auth-utils';
-import dbConnect from '@/lib/mongoose';
 
 export async function GET(request: NextRequest) {
   try {
-    await dbConnect();
-
     // Verificar autenticación
     const authHeader = request.headers.get('authorization');
     const token = extractTokenFromHeader(authHeader);
@@ -27,9 +24,18 @@ export async function GET(request: NextRequest) {
     }
 
     // Obtener todas las reviews del usuario
-    const userReviews = await Review.find({ userId: user.userId })
-      .sort({ createdAt: -1 }) // Ordenar por más recientes primero
-      .lean(); // Usar lean() para mejor performance
+    const userReviews = await prisma.review.findMany({
+      where: { userId: user.userId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true
+          }
+        }
+      }
+    });
 
     return NextResponse.json({
       success: true,

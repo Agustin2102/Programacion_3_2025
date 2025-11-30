@@ -3,33 +3,33 @@
  */
 
 import { NextRequest } from 'next/server';
-import connectDB from '../../../../lib/mongoose';
-import User from '../../../../models/User';
-import { loginSchema, LoginInput } from '../../../../lib/validations';
-import { verifyPassword, generateToken, createErrorResponse, createSuccessResponse } from '../../../../lib/auth-utils';
+import { prisma } from '@/lib/prisma';
+import { loginSchema, LoginInput } from '@/lib/validations';
+import { verifyPassword, generateToken, createErrorResponse, createSuccessResponse } from '@/lib/auth-utils';
 
 export async function POST(request: NextRequest) {
   try {
-    await connectDB();
-
     const body: LoginInput = await request.json();
     const validatedData = loginSchema.parse(body);
 
-    // Buscar usuario incluyendo la contraseña
-    const user = await User.findOne({ email: validatedData.email }).select('+password');
+    // Buscar usuario por email
+    const user = await prisma.user.findUnique({
+      where: { email: validatedData.email }
+    });
+
     if (!user) {
       return createErrorResponse('Credenciales inválidas', 401);
     }
 
     // Verificar contraseña
-    const isPasswordValid = await user.comparePassword(validatedData.password);
+    const isPasswordValid = await verifyPassword(validatedData.password, user.password);
     if (!isPasswordValid) {
       return createErrorResponse('Credenciales inválidas', 401);
     }
 
     // Generar token JWT
     const token = generateToken({
-      _id: user._id.toString(),
+      id: user.id,
       email: user.email,
       name: user.name,
     });
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     return createSuccessResponse({
       message: 'Login exitoso',
       user: {
-        id: user._id,
+        id: user.id,
         email: user.email,
         name: user.name,
       },
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     if (error.name === 'ZodError') {
       return createErrorResponse(
-        `Datos inválidos: ${error.errors.map((e: any) => e.message).join(', ')}`, 
+        `Datos inválidos: ${error.errors.map((e: any) => e.message).join(', ')}`,
         400
       );
     }

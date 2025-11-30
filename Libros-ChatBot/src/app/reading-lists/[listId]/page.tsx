@@ -50,13 +50,26 @@ const ReadingListDetailPage: React.FC = () => {
     // Cargar lista
     const loadList = async () => {
         try {
-            const response = await fetch(`/api/reading-lists/${listId}`);
+            const token = localStorage.getItem('token');
+            if (!token) {
+                router.push('/login');
+                return;
+            }
+
+            const response = await fetch(`/api/reading-lists/${listId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
             if (response.ok) {
                 const data: ReadingList = await response.json();
                 setList(data);
                 if (data.books && data.books.length > 0) {
                     await loadBooks(data.books);
                 }
+            } else if (response.status === 401) {
+                router.push('/login');
             } else {
                 setError('Lista no encontrada');
             }
@@ -100,16 +113,13 @@ const ReadingListDetailPage: React.FC = () => {
 
         try {
             setRemoving(bookId);
+            const token = localStorage.getItem('token');
 
-            const response = await fetch(`/api/reading-lists/${listId}/books`, {
-                method: 'POST',
+            const response = await fetch(`/api/reading-lists/${listId}/books?bookId=${bookId}`, {
+                method: 'DELETE',
                 headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    bookId,
-                    action: 'remove',
-                }),
+                    'Authorization': `Bearer ${token}`
+                }
             });
 
             if (response.ok) {
@@ -137,6 +147,7 @@ const ReadingListDetailPage: React.FC = () => {
         if (listId) {
             loadList();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [listId]);
 
     return (

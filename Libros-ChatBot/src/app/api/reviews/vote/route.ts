@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '../../../../lib/mongoose';
-import Review from '../../../../models/Review';
-import Vote from '../../../../models/Vote';
+import { prisma } from '../../../../lib/prisma';
 
 // POST - Votar en una reseña
 export async function POST(request: NextRequest) {
   try {
-    await connectDB(); // <-- Establece la conexión a la base de datos
     const body = await request.json();
     const { reviewId, voteType } = body;
 
@@ -24,39 +21,65 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar si el usuario ya votó en esta reseña
-    const existingVote = await Vote.findOne({
-      reviewId,
-      userIP,
+    const existingVote = await prisma.vote.findFirst({
+      where: {
+        reviewId,
+        userIP,
+      }
     });
 
     if (existingVote) {
       // Si ya votó, actualizar el voto si es diferente
       if (existingVote.voteType !== voteType) {
-        await Vote.findByIdAndUpdate(existingVote._id, { voteType });
+        await prisma.vote.update({
+          where: { id: existingVote.id },
+          data: { voteType }
+        });
       } else {
         return NextResponse.json({ error: 'Ya has votado en esta reseña' }, { status: 400 });
       }
     } else {
       // Crear nuevo voto
-      await Vote.create({
-        reviewId,
-        userIP,
-        voteType,
+      await prisma.vote.create({
+        data: {
+          reviewId,
+          userIP,
+          voteType,
+        }
       });
     }
 
     // Recalcular votos de la reseña
-    const votes = await Vote.find({ reviewId });
+    const upvotes = await prisma.vote.count({
+      where: {
+        reviewId,
+        voteType: 'UP'
+      }
+    });
 
-    const upvotes = votes.filter(vote => vote.voteType === 'UP').length;
-    const downvotes = votes.filter(vote => vote.voteType === 'DOWN').length;
+    const downvotes = await prisma.vote.count({
+      where: {
+        reviewId,
+        voteType: 'DOWN'
+      }
+    });
 
     // Actualizar la reseña con los nuevos conteos
-    const updatedReview = await Review.findByIdAndUpdate(
-      reviewId,
-      { upvotes, downvotes },
-      { new: true }
-    );
+    const updatedReview = await prisma.review.update({
+      where: { id: reviewId },
+      data: {
+        upvotes,
+        downvotes
+      },
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true
+          }
+        }
+      }
+    });
 
     return NextResponse.json(updatedReview);
   } catch (error) {
