@@ -6,6 +6,11 @@ interface BookInfo {
   description?: string;
   publishedDate?: string;
   pageCount?: number;
+  publisher?: string;
+  categories?: string[];
+  language?: string;
+  previewLink?: string;
+  infoLink?: string;
 }
 
 const bookCache = new Map<string, BookInfo>();
@@ -37,6 +42,11 @@ export async function getBookInfo(bookId: string): Promise<BookInfo | null> {
       description: data.volumeInfo?.description || '',
       publishedDate: data.volumeInfo?.publishedDate || '',
       pageCount: data.volumeInfo?.pageCount || 0,
+      publisher: data.volumeInfo?.publisher || '',
+      categories: data.volumeInfo?.categories || [],
+      language: data.volumeInfo?.language || '',
+      previewLink: data.volumeInfo?.previewLink || '',
+      infoLink: data.volumeInfo?.infoLink || '',
     };
 
     // Guardar en caché

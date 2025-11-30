@@ -48,9 +48,6 @@ export const useAuth = () => {
         const token = localStorage.getItem('token');
         const userStr = localStorage.getItem('user');
         
-        console.log('Initializing auth - token:', token ? token.substring(0, 20) + '...' : 'No token');
-        console.log('Initializing auth - user:', userStr ? JSON.parse(userStr) : 'No user');
-        
         if (token && userStr) {
           const user = JSON.parse(userStr);
           setAuthState({
@@ -59,7 +56,6 @@ export const useAuth = () => {
             isLoading: false,
             isAuthenticated: true
           });
-          console.log('Auth state set to authenticated');
         } else {
           setAuthState({
             user: null,
@@ -67,7 +63,6 @@ export const useAuth = () => {
             isLoading: false,
             isAuthenticated: false
           });
-          console.log('Auth state set to unauthenticated');
         }
       } catch (error) {
         console.error('Error loading auth state:', error);

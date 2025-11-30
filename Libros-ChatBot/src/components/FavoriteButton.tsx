@@ -20,11 +20,12 @@
 "use client"; // Este componente se ejecuta en el navegador
 
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../hooks/useAuth';
 
 // DEFINICIÓN DE TIPOS
 interface FavoriteButtonProps {
   bookId: string; // ID del libro desde Google Books API
-  userId: string; // ID del usuario (temporal)
+  userId: string; // ID del usuario autenticado (mantenido para compatibilidad pero usar token de useAuth)
   className?: string; // Clases CSS adicionales
 }
 
@@ -45,6 +46,9 @@ const FavoriteButton: React.FC<FavoriteButtonProps> = ({
   className = "" 
 }) => {
   
+  // OBTENER TOKEN DE AUTENTICACIÓN
+  const { token } = useAuth();
+  
   // ESTADOS DEL COMPONENTE
   const [isFavorite, setIsFavorite] = useState<boolean>(false); // Estado actual del favorito
   const [loading, setLoading] = useState<boolean>(false); // Estado de carga
@@ -55,17 +59,29 @@ const FavoriteButton: React.FC<FavoriteButtonProps> = ({
    * Se ejecuta al montar el componente
    */
   const checkFavoriteStatus = async () => {
+    if (!token) {
+      setChecking(false);
+      return;
+    }
+
     try {
       setChecking(true); // Activar indicador de verificación
       
       // PETICIÓN: Verificar estado del favorito
       const response = await fetch(
-        `/api/favorites/check?userId=${encodeURIComponent(userId)}&bookId=${encodeURIComponent(bookId)}`
+        `/api/favorites/check?bookId=${encodeURIComponent(bookId)}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
       );
       
       if (response.ok) {
         const data: FavoriteStatus = await response.json();
         setIsFavorite(data.isFavorite); // Actualizar estado local
+      } else {
+        console.error('Error al verificar favorito:', response.status);
       }
     } catch (error) {
       console.error('Error al verificar favorito:', error);
@@ -79,6 +95,11 @@ const FavoriteButton: React.FC<FavoriteButtonProps> = ({
    * Envía la acción al backend y actualiza el estado local
    */
   const handleToggleFavorite = async () => {
+    if (!token) {
+      alert('Debes iniciar sesión para agregar favoritos');
+      return;
+    }
+
     try {
       setLoading(true); // Activar indicador de carga
       
@@ -89,9 +110,9 @@ const FavoriteButton: React.FC<FavoriteButtonProps> = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          userId,
           bookId,
           action,
         }),
@@ -112,12 +133,12 @@ const FavoriteButton: React.FC<FavoriteButtonProps> = ({
     }
   };
 
-  // EFECTO: Verificar estado inicial al montar el componente
+  // EFECTO: Verificar estado del favorito al montar el componente
   useEffect(() => {
-    if (userId && bookId) {
+    if (userId && bookId && token) {
       checkFavoriteStatus();
     }
-  }, [userId, bookId]);
+  }, [userId, bookId, token]);
 
   // RENDERIZADO CONDICIONAL
   // Mostrar spinner mientras se verifica el estado inicial

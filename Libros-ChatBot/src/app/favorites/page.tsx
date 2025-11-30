@@ -17,6 +17,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '../../hooks/useAuth';
 
 // DEFINICIÓN DE TIPOS
 interface Favorite {
@@ -42,6 +43,7 @@ interface Book {
 
 const FavoritesPage: React.FC = () => {
   const router = useRouter();
+  const { user, token, isAuthenticated } = useAuth();
   
   // ESTADOS DEL COMPONENTE
   const [favorites, setFavorites] = useState<Favorite[]>([]);
@@ -50,18 +52,25 @@ const FavoritesPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
 
-  // TEMPORAL: ID de usuario hardcodeado
-  const userId = 'user-123';
-
   /**
    * Carga todos los favoritos del usuario
    */
   const loadFavorites = async () => {
+    if (!token) {
+      setError('No está autenticado');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
       
-      const response = await fetch(`/api/favorites?userId=${encodeURIComponent(userId)}`);
+      const response = await fetch(`/api/favorites`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       
       if (response.ok) {
         const data: Favorite[] = await response.json();
@@ -112,6 +121,11 @@ const FavoritesPage: React.FC = () => {
    * Quita un libro de favoritos
    */
   const handleRemoveFavorite = async (bookId: string) => {
+    if (!token) {
+      alert('No está autenticado');
+      return;
+    }
+
     try {
       setRemoving(bookId);
       
@@ -119,9 +133,9 @@ const FavoritesPage: React.FC = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          userId,
           bookId,
           action: 'remove',
         }),
@@ -146,8 +160,10 @@ const FavoritesPage: React.FC = () => {
 
   // EFECTO: Cargar favoritos al montar el componente
   useEffect(() => {
-    loadFavorites();
-  }, []);
+    if (isAuthenticated && token) {
+      loadFavorites();
+    }
+  }, [isAuthenticated, token]);
 
   // RENDERIZADO PRINCIPAL
   return (

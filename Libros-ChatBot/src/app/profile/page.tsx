@@ -37,22 +37,17 @@ export default function ProfilePage() {
   useEffect(() => {
     const fetchUserReviews = async () => {
       if (!token) {
-        console.log('No token available for fetching reviews');
         setIsLoadingReviews(false);
         return;
       }
 
       if (!isAuthenticated) {
-        console.log('User not authenticated, skipping reviews fetch');
         setIsLoadingReviews(false);
         return;
       }
 
       try {
         setIsLoadingReviews(true);
-        console.log('Fetching user reviews with token:', token.substring(0, 20) + '...');
-        console.log('User authenticated:', isAuthenticated);
-        console.log('User data:', user);
         
         const response = await fetch('/api/user/reviews', {
           headers: {
@@ -61,9 +56,6 @@ export default function ProfilePage() {
           },
         });
 
-        console.log('Response status:', response.status);
-        console.log('Response ok:', response.ok);
-        
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
           console.error('API Error Response:', errorData);
@@ -71,7 +63,6 @@ export default function ProfilePage() {
         }
 
         const data = await response.json();
-        console.log('Successfully fetched reviews:', data);
         setUserReviews(data.reviews || []);
       } catch (error) {
         console.error('Error cargando reseñas:', error);

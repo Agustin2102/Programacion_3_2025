@@ -10,16 +10,12 @@ export const maxDuration = 30;
 
 export async function POST(req: Request) {
     try {
-        console.log('[CHAT API] ========== Nueva petición ==========');
         const { messages } = await req.json();
-        console.log('[CHAT API] Mensajes recibidos:', messages.length);
 
         // Obtener userId del JWT desde Authorization header
         const authHeader = req.headers.get('authorization');
-        console.log('[CHAT API] Authorization header:', authHeader ? `${authHeader.substring(0, 30)}...` : 'NO PRESENTE');
 
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            console.log('[CHAT API] ✗ No hay token en el header');
             return new Response(
                 JSON.stringify({ error: 'No autenticado' }),
                 { status: 401, headers: { 'Content-Type': 'application/json' } }
@@ -27,26 +23,17 @@ export async function POST(req: Request) {
         }
 
         const token = authHeader.substring(7); // Remover "Bearer "
-        console.log('[CHAT API] Token extraído:', `${token.substring(0, 20)}...`);
 
         let userId: string;
         try {
             const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as { userId: string };
             userId = decoded.userId;
-            console.log('[CHAT API] Usuario autenticado:', userId);
-            console.log('[CHAT API] Token decodificado completo:', decoded);
         } catch (error) {
-            console.log('[CHAT API] ✗ Error al verificar token:', error);
             return new Response(
                 JSON.stringify({ error: 'Token inválido' }),
                 { status: 401, headers: { 'Content-Type': 'application/json' } }
             );
         }
-
-        console.log('[CHAT API] Configuración:');
-        console.log('  - Modelo: gemini-2.0-flash');
-        console.log('  - API Key presente:', !!process.env.GOOGLE_GENERATIVE_AI_API_KEY);
-        console.log('  - UserId:', userId);
 
         const result = streamText({
             model: google('gemini-2.0-flash'),
@@ -61,6 +48,9 @@ export async function POST(req: Request) {
       - Cuando agregues un libro, puedes especificar a qué lista agregarlo
       - Si no especificas una lista, el libro se agrega a la lista por defecto "Quiero Leer"
       - Puedes consultar libros de una lista específica o de todas las listas
+      - getReadingList y getReadBooks YA INCLUYEN título y autores, NO necesitas llamar a getBookDetails adicionales
+      - getReadingList devuelve SOLO libros pendientes (no incluye los ya leídos)
+      - getReadBooks devuelve los libros que el usuario YA terminó de leer, con sus ratings
       
       FLUJO PARA AGREGAR LIBROS:
       1. Si el usuario pide agregar un libro SIN especificar la lista:
@@ -74,7 +64,10 @@ export async function POST(req: Request) {
       IMPORTANTE: Para obtener detalles de un libro específico, SIEMPRE debes:
       1. Primero usar searchBooks para encontrar el libro y obtener su ID
       2. Luego usar getBookDetails con el ID obtenido
-      NO inventes IDs de libros.`,
+      NO inventes IDs de libros.
+      
+      CUANDO MUESTRES LISTAS: Los resultados de getReadingList y getReadBooks incluyen título y autores,
+      muéstralos directamente al usuario con formato bonito. NO necesitas hacer llamadas adicionales a getBookDetails.`,
             tools: {
                 searchBooks: tool({
                     description: 'Buscar libros por título, autor, tema o palabras clave. Devuelve una lista de libros con sus IDs.',
@@ -84,13 +77,10 @@ export async function POST(req: Request) {
                         orderBy: z.enum(['relevance', 'newest']).optional().default('relevance')
                     }),
                     execute: async ({ query, maxResults, orderBy }) => {
-                        console.log('[TOOL searchBooks] Ejecutando con:', { query, maxResults, orderBy });
                         try {
                             const books = await searchBooks({ query, maxResults, orderBy });
-                            console.log('[TOOL searchBooks] ✓ Encontrados', books.length, 'libros');
                             return { books };
                         } catch (error) {
-                            console.error('[TOOL searchBooks] ✗ Error:', error);
                             throw error;
                         }
                     }
@@ -102,13 +92,10 @@ export async function POST(req: Request) {
                         bookId: z.string().describe('ID del libro obtenido previamente de searchBooks')
                     }),
                     execute: async ({ bookId }) => {
-                        console.log('[TOOL getBookDetails] Ejecutando para:', bookId);
                         try {
                             const book = await getBookDetails(bookId);
-                            console.log('[TOOL getBookDetails] ✓ Libro obtenido');
                             return { book };
                         } catch (error) {
-                            console.error('[TOOL getBookDetails] ✗ Error:', error);
                             throw error;
                         }
                     }
@@ -123,7 +110,6 @@ export async function POST(req: Request) {
                     execute: async ({ bookId, listName }) => {
                         // Si no se especifica lista, usar "Quiero Leer" como lista por defecto
                         const targetListName = listName || 'Quiero Leer';
-                        console.log('[TOOL addToReadingList] Agregando:', bookId, 'a lista:', targetListName);
                         
                         try {
                             // Buscar o crear la lista personalizada
@@ -148,7 +134,6 @@ export async function POST(req: Request) {
                                         isPublic: false
                                     }
                                 });
-                                console.log('[TOOL addToReadingList] ✓ Lista creada:', targetListName);
                             }
 
                             const listId = customList.id;
@@ -180,27 +165,31 @@ export async function POST(req: Request) {
                                 }
                             });
 
-                            console.log('[TOOL addToReadingList] ✓ Libro agregado');
                             return { 
                                 success: true, 
                                 message: `Libro agregado a ${targetListName}` 
                             };
                         } catch (error) {
-                            console.error('[TOOL addToReadingList] ✗ Error:', error);
                             throw error;
                         }
                     }
                 }),
 
                 getReadingList: tool({
-                    description: 'Obtener la lista de libros de una lista específica del usuario. Si no se especifica listName, obtiene todos los libros de todas las listas.',
+                    description: 'Obtener la lista de libros PENDIENTES de lectura del usuario con sus títulos y autores (excluye libros ya marcados como leídos). Si no se especifica listName, obtiene todos los libros de todas las listas.',
                     parameters: z.object({
                         listName: z.string().optional().describe('Nombre de la lista específica a consultar'),
                         limit: z.number().optional().default(20).describe('Máximo número de libros a devolver')
                     }),
                     execute: async ({ listName, limit }) => {
-                        console.log('[TOOL getReadingList] Obteniendo lista:', listName || 'todas', 'limit:', limit);
                         try {
+                            // Obtener IDs de libros ya leídos para excluirlos
+                            const readBooks = await prisma.readBook.findMany({
+                                where: { userId },
+                                select: { bookId: true }
+                            });
+                            const readBookIds = readBooks.map(b => b.bookId);
+
                             let books;
 
                             if (listName) {
@@ -214,6 +203,9 @@ export async function POST(req: Request) {
                                     },
                                     include: {
                                         books: {
+                                            where: {
+                                                bookId: { notIn: readBookIds }
+                                            },
                                             take: limit,
                                             orderBy: { addedAt: 'desc' }
                                         }
@@ -230,18 +222,41 @@ export async function POST(req: Request) {
 
                                 books = customList.books;
                             } else {
-                                // Obtener todos los libros de todas las listas
+                                // Obtener todos los libros pendientes de todas las listas
                                 books = await prisma.readingList.findMany({
-                                    where: { userId },
+                                    where: { 
+                                        userId,
+                                        bookId: { notIn: readBookIds }
+                                    },
                                     take: limit,
                                     orderBy: { addedAt: 'desc' }
                                 });
                             }
 
-                            console.log('[TOOL getReadingList] ✓ Encontrados', books.length, 'libros');
-                            return { success: true, books, count: books.length };
+                            // Obtener detalles de cada libro desde Google Books
+                            const booksWithDetails = await Promise.all(
+                                books.map(async (book) => {
+                                    try {
+                                        const details = await getBookDetails(book.bookId);
+                                        return {
+                                            ...book,
+                                            title: details.title,
+                                            authors: details.authors,
+                                            thumbnail: details.thumbnail
+                                        };
+                                    } catch (error) {
+                                        return {
+                                            ...book,
+                                            title: 'Desconocido',
+                                            authors: [],
+                                            thumbnail: null
+                                        };
+                                    }
+                                })
+                            );
+
+                            return { success: true, books: booksWithDetails, count: booksWithDetails.length };
                         } catch (error) {
-                            console.error('[TOOL getReadingList] ✗ Error:', error);
                             throw error;
                         }
                     }
@@ -251,7 +266,6 @@ export async function POST(req: Request) {
                     description: 'Obtener todas las listas de lectura personalizadas del usuario con información de cuántos libros tiene cada una',
                     parameters: z.object({}),
                     execute: async () => {
-                        console.log('[TOOL getAllLists] Obteniendo todas las listas del usuario');
                         try {
                             const lists = await prisma.customReadingList.findMany({
                                 where: { userId },
@@ -270,27 +284,36 @@ export async function POST(req: Request) {
                                 isPublic: list.isPublic
                             }));
 
-                            console.log('[TOOL getAllLists] ✓ Encontradas', lists.length, 'listas');
                             return { success: true, lists: formattedLists, count: lists.length };
                         } catch (error) {
-                            console.error('[TOOL getAllLists] ✗ Error:', error);
                             throw error;
                         }
                     }
                 }),
 
                 markAsRead: tool({
-                    description: 'Marcar un libro como leído con rating y review opcionales',
+                    description: 'Marcar un libro como leído con rating y review opcionales. Si el libro ya estaba marcado como leído, actualiza el rating/review.',
                     parameters: z.object({
                         bookId: z.string(),
                         rating: z.number().min(1).max(5).optional(),
                         review: z.string().optional()
                     }),
                     execute: async ({ bookId, rating, review }) => {
-                        console.log('[TOOL markAsRead] Marcando como leído:', bookId);
                         try {
-                            await prisma.readBook.create({
-                                data: {
+                            // Usar upsert para crear o actualizar
+                            const readBook = await prisma.readBook.upsert({
+                                where: {
+                                    userId_bookId: {
+                                        userId,
+                                        bookId
+                                    }
+                                },
+                                update: {
+                                    rating: rating ?? undefined,
+                                    review: review ?? undefined,
+                                    dateFinished: new Date()
+                                },
+                                create: {
                                     userId,
                                     bookId,
                                     rating,
@@ -298,13 +321,69 @@ export async function POST(req: Request) {
                                 }
                             });
 
+                            // Remover de las listas de lectura
                             await prisma.readingList.deleteMany({
                                 where: { userId, bookId }
                             });
-                            console.log('[TOOL markAsRead] ✓ Libro marcado como leído');
-                            return { success: true, message: 'Libro marcado como leído' };
+                            
+                            return { 
+                                success: true, 
+                                message: rating 
+                                    ? `Libro marcado como leído con ${rating} estrellas` 
+                                    : 'Libro marcado como leído',
+                                bookId,
+                                rating: readBook.rating
+                            };
                         } catch (error) {
-                            console.error('[TOOL markAsRead] ✗ Error:', error);
+                            return { 
+                                success: false, 
+                                error: 'Error al marcar el libro como leído. Verifica que el libro exista.' 
+                            };
+                        }
+                    }
+                }),
+
+                getReadBooks: tool({
+                    description: 'Obtener los libros que el usuario ya marcó como leídos, con sus títulos, autores, ratings y reviews',
+                    parameters: z.object({
+                        limit: z.number().optional().default(20).describe('Máximo número de libros a devolver')
+                    }),
+                    execute: async ({ limit }) => {
+                        try {
+                            const readBooks = await prisma.readBook.findMany({
+                                where: { userId },
+                                take: limit,
+                                orderBy: { dateFinished: 'desc' }
+                            });
+
+                            // Obtener detalles de cada libro desde Google Books
+                            const booksWithDetails = await Promise.all(
+                                readBooks.map(async (book) => {
+                                    try {
+                                        const details = await getBookDetails(book.bookId);
+                                        return {
+                                            ...book,
+                                            title: details.title,
+                                            authors: details.authors,
+                                            thumbnail: details.thumbnail
+                                        };
+                                    } catch (error) {
+                                        return {
+                                            ...book,
+                                            title: 'Desconocido',
+                                            authors: [],
+                                            thumbnail: null
+                                        };
+                                    }
+                                })
+                            );
+
+                            return { 
+                                success: true, 
+                                books: booksWithDetails, 
+                                count: booksWithDetails.length 
+                            };
+                        } catch (error) {
                             throw error;
                         }
                     }
@@ -316,28 +395,19 @@ export async function POST(req: Request) {
                         period: z.enum(['all-time', 'year', 'month', 'week']).optional().default('all-time')
                     }),
                     execute: async ({ period }) => {
-                        console.log('[TOOL getReadingStats] Obteniendo stats, period:', period);
                         try {
                             const stats = await calculateReadingStats(userId, period);
-                            console.log('[TOOL getReadingStats] ✓ Stats calculadas');
                             return { stats };
                         } catch (error) {
-                            console.error('[TOOL getReadingStats] ✗ Error:', error);
                             throw error;
                         }
                     }
                 })
-            }
+            },
         });
 
-        console.log('[CHAT API] ✓ StreamText configurado, devolviendo respuesta');
         return result.toDataStreamResponse();
     } catch (error) {
-        console.error('[CHAT API] ✗✗✗ ERROR CRÍTICO ✗✗✗');
-        console.error('[CHAT API] Tipo:', error instanceof Error ? error.constructor.name : typeof error);
-        console.error('[CHAT API] Mensaje:', error instanceof Error ? error.message : String(error));
-        console.error('[CHAT API] Stack:', error instanceof Error ? error.stack : 'No stack available');
-        console.error('[CHAT API] Objeto completo:', error);
 
         return new Response(
             JSON.stringify({

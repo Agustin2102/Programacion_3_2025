@@ -1,24 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../lib/prisma';
+import { requireAuth } from '../../../lib/auth-utils';
 
-// GET - Obtener favoritos del usuario
-export async function GET(request: NextRequest){
+// GET - Obtener favoritos del usuario (PROTEGIDO CON AUTENTICACIÓN)
+async function handleGet(request: NextRequest){
     try{
-        // Obtener el userId de los parámetros de la URL
-        const {searchParams} = new URL(request.url);
-        const userId = searchParams.get('userId');
-
-        // Validar que userId sea requerido
-        if(!userId){
-            return NextResponse.json({
-                error: 'userId es requerido'
-            }, {
-                status: 400
-            });
-        }
+        // Obtener datos del usuario del token (agregado por requireAuth)
+        const user = (request as any).user;
 
         const favorites = await prisma.favorite.findMany({
-            where: { userId },
+            where: { userId: user.userId },
             orderBy: { createdAt: 'desc' }
         });
 
@@ -33,15 +24,18 @@ export async function GET(request: NextRequest){
     }
 }
 
-// POST - Agregar un libro a favoritos
-export async function POST(request: NextRequest){
+// POST - Agregar/Eliminar un libro de favoritos (PROTEGIDO CON AUTENTICACIÓN)
+async function handlePost(request: NextRequest){
     try {
         const body = await request.json();
-        const {userId, bookId, action} = body;
+        const {bookId, action} = body;
+        
+        // Obtener datos del usuario del token (agregado por requireAuth)
+        const user = (request as any).user;
 
-        if(!userId || !bookId || !action){
+        if(!bookId || !action){
             return NextResponse.json({
-                error: 'Todos los campos son requeridos'
+                error: 'bookId y action son requeridos'
             }, {
                 status: 400
             });
@@ -60,7 +54,7 @@ export async function POST(request: NextRequest){
             const existingFavorite = await prisma.favorite.findUnique({
                 where: {
                     userId_bookId: {
-                        userId,
+                        userId: user.userId,
                         bookId
                     }
                 }
@@ -77,7 +71,7 @@ export async function POST(request: NextRequest){
             // Si no está, lo agrego
             const newFavorite = await prisma.favorite.create({
                 data: {
-                    userId,
+                    userId: user.userId,
                     bookId
                 }
             });
@@ -88,7 +82,7 @@ export async function POST(request: NextRequest){
             const existingFavorite = await prisma.favorite.findUnique({
                 where: {
                     userId_bookId: {
-                        userId,
+                        userId: user.userId,
                         bookId
                     }
                 }
@@ -106,7 +100,7 @@ export async function POST(request: NextRequest){
             await prisma.favorite.delete({
                 where: {
                     userId_bookId: {
-                        userId,
+                        userId: user.userId,
                         bookId
                     }
                 }
@@ -127,3 +121,7 @@ export async function POST(request: NextRequest){
         });
     }
 }
+
+// Proteger las rutas con autenticación
+export const GET = requireAuth(handleGet);
+export const POST = requireAuth(handlePost);

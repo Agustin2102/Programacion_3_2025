@@ -4,15 +4,9 @@ import { useChat } from 'ai/react';
 import { useEffect, useState } from 'react';
 
 function ChatInterface({ token }: { token: string }) {
-  // Log del token para debug
-  useEffect(() => {
-    console.log('[Chat] Token recibido:', token ? `${token.substring(0, 20)}...` : 'null');
-  }, [token]);
-
   const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
     api: '/api/chat',
     fetch: async (input, init) => {
-      console.log('[Chat] Custom fetch called with token');
       const headers = {
         ...init?.headers,
         'Authorization': `Bearer ${token}`,
@@ -24,9 +18,6 @@ function ChatInterface({ token }: { token: string }) {
     },
     onError: (error) => {
       console.error('[Chat] Error en el chat:', error);
-    },
-    onResponse: (response) => {
-      console.log('[Chat] Response status:', response.status);
     },
   });
 
@@ -97,7 +88,6 @@ export default function Chat() {
   // Obtener token del localStorage al montar el componente
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
-    console.log('[Chat] Token desde localStorage:', storedToken ? `${storedToken.substring(0, 20)}...` : 'null');
     
     // Verificar formato del token (decodificar el payload)
     if (storedToken) {
@@ -105,7 +95,6 @@ export default function Chat() {
         const parts = storedToken.split('.');
         if (parts.length === 3) {
           const payload = JSON.parse(atob(parts[1]));
-          console.log('[Chat] Token payload:', payload);
           
           if (!payload.userId) {
             console.error('[Chat] Token inválido: no contiene userId');
